@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Quality Converter</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            background-image: url("{{ url_for('static', filename='images/image.jpg') }}"); /* Ensure my_background.jpg is in static/ */
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+
+        .container {
+            background-color: rgba(255, 255, 255, 0.85);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            max-width: 600px;
+            margin: auto;
+            position: relative; /* For potential relative positioning of children */
+        }
+
+        nav {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        nav a {
+            margin: 0 15px;
+            text-decoration: none;
+            color: #3498db;
+            font-weight: bold;
+            font-size: 1.1em;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        nav a:hover, nav a.active {
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50; /* Darker heading color */
+            margin-top: 0; /* Adjust if nav is present */
+        }
+
+        label {
+            display: block;
+            margin-top: 15px;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #34495e; /* Slightly different label color */
+        }
+
+        input[type="file"], input[type="number"], select {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #bdc3c7; /* Lighter gray border */
+            border-radius: 4px;
+            box-sizing: border-box;
+            background-color: #fff;
+        }
+
+        input[type="submit"] {
+            background-color: #3498db; /* Blue for image converter */
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            transition: background-color 0.3s ease;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #2980b9; /* Darker blue on hover */
+        }
+
+        .flash-messages {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 20px; /* Space below messages */
+        }
+
+        .flash-messages li {
+            padding: 12px 15px; /* Slightly more padding */
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-size: 0.95em;
+        }
+
+        .flash-messages .danger { background-color: #e74c3c; color: white; border: 1px solid #c0392b; }
+        .flash-messages .warning { background-color: #f39c12; color: white; border: 1px solid #d35400; }
+        .flash-messages .success { background-color: #2ecc71; color: white; border: 1px solid #27ae60; }
+
+        .info-text {
+            font-size: 0.85em; /* Slightly smaller */
+            color: #555;
+            margin-bottom: 15px;
+            background-color: rgba(236, 240, 241, 0.7); /* Very light semi-transparent background */
+            padding: 8px;
+            border-radius: 3px;
+            line-height: 1.4;
+        }
+
+        .param-group {
+            border: 1px solid #dde; /* Light border */
+            padding: 15px;
+            margin-bottom: 20px; /* More space */
+            border-radius: 4px;
+        }
+
+        .param-group legend {
+            font-weight: bold;
+            padding: 0 10px; /* More padding for legend */
+            color: #2c3e50;
+            font-size: 1.1em;
+        }
+
+        /* --- LOADER STYLES --- */
+        #loader {
+            display: none; /* Initially hidden */
+            position: fixed; /* Overlay the whole page */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent background */
+            z-index: 9999; /* Ensure it's on top */
+            justify-content: center;
+            align-items: center;
+        }
+        #loader img {
+            width: 80px; /* Adjust size of your GIF as needed */
+            height: 80px;
+        }
+    </style>
+</head>
+<body>
+    <!-- LOADER ELEMENT -->
+    <div id="loader">
+        <img src="{{ url_for('static', filename='images/giphy.gif') }}" alt="Processing Image..."> <!-- Ensure giphy.gif is in static/images/ -->
+    </div>
+
+    <div class="container">
+        <nav>
+            <a href="{{ url_for('index_image_converter') }}" class="active">Image Converter</a>
+            <a href="{{ url_for('video_converter_route') }}">Video Converter</a>
+        </nav>
+
+        <h1>Image Quality Converter</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <ul class="flash-messages">
+            {% for category, message in messages %}
+              <li class="{{ category }}">{{ message }}</li>
+            {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" enctype="multipart/form-data" id="conversionForm"> <!-- ID for JavaScript -->
+            <label for="file">Choose Image:</label>
+            <input type="file" name="file" id="file" accept="image/*" required>
+
+            <fieldset class="param-group">
+                <legend>Conversion Settings</legend>
+
+                <label for="conversion_type">Conversion Goal:</label>
+                <select name="conversion_type" id="conversion_type">
+                    <option value="to_low" selected>Convert to Lower Quality (smaller size, more compression)</option>
+                    <option value="to_high">Convert to "Higher" Quality (upscale, less compression)</option>
+                </select>
+                <p class="info-text">
+                    "Lower Quality": Typically makes the image smaller (e.g., scale 0.5) and uses higher JPEG compression (e.g., quality 30-70).<br>
+                    "'Higher' Quality": Typically makes the image larger (e.g., scale 2.0) and uses lower JPEG compression (e.g., quality 90-98) or PNG. Note: Cannot magically add lost detail.
+                </p>
+
+                <label for="scale_factor">Scale Factor:</label>
+                <input type="number" name="scale_factor" id="scale_factor" value="0.5" step="0.1" min="0.1" max="10.0" required>
+                <p class="info-text">E.g., 0.5 for 50% size (half width/height), 1.0 for original size, 2.0 for 200% size.</p>
+
+                <label for="output_format">Output Format:</label>
+                <select name="output_format" id="output_format">
+                    <option value="JPEG" selected>JPEG (good for photos, lossy)</option>
+                    <option value="PNG">PNG (good for graphics, lossless)</option>
+                </select>
+
+                <label for="jpeg_quality">JPEG Quality (if output is JPEG):</label>
+                <input type="number" name="jpeg_quality" id="jpeg_quality" value="75" min="0" max="100">
+                <p class="info-text">0 (worst, smallest file) to 100 (best, largest file). Typical: 30-70 for low, 90-98 for high.</p>
+            </fieldset>
+
+            <input type="submit" value="Convert and Download Image">
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('conversionForm'); // Matches the form ID
+            const loader = document.getElementById('loader');
+            let cookieCheckInterval;
+
+            if (form && loader) {
+                form.addEventListener('submit', function(event) {
+                    const fileInput = document.getElementById('file');
+                    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                        // Browser's 'required' attribute should prevent submission,
+                        // but this is a fallback.
+                        return;
+                    }
+
+                    loader.style.display = 'flex'; // Show loader
+
+                    if (cookieCheckInterval) {
+                        clearInterval(cookieCheckInterval);
+                    }
+
+                    cookieCheckInterval = setInterval(function() {
+                        const cookieExists = document.cookie.split(';').some((item) => item.trim().startsWith('fileDownloadComplete='));
+                        
+                        if (cookieExists) {
+                            loader.style.display = 'none'; // Hide loader
+                            document.cookie = "fileDownloadComplete=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"; // Clear cookie
+                            clearInterval(cookieCheckInterval); // Stop checking
+                        }
+                    }, 300); // Check every 300 milliseconds
+
+                    // Fallback to hide loader after some time (e.g., if server errors before cookie set)
+                    setTimeout(function() {
+                        if (loader.style.display !== 'none') {
+                            console.warn("Loader fallback timeout (image): Hiding loader.");
+                            loader.style.display = 'none';
+                            if (cookieCheckInterval) {
+                                clearInterval(cookieCheckInterval);
+                            }
+                        }
+                    }, 45000); // 45 seconds fallback for image processing
+                });
+            }
+
+            // Clear download cookie on page load/show, in case it's leftover
+            window.addEventListener('pageshow', function(event) {
+                if (document.cookie.split(';').some((item) => item.trim().startsWith('fileDownloadComplete='))) {
+                    document.cookie = "fileDownloadComplete=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                }
+                // Optional: if loader was stuck due to an unexpected navigation, try to hide it.
+                // However, this can be tricky if the page is reloaded due to a legitimate error flash.
+                // if (loader && loader.style.display === 'flex' && !document.querySelector('.flash-messages li.danger')) {
+                //     loader.style.display = 'none';
+                // }
+            });
+        });
+    </script>
+</body>
+</html>

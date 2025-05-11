@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Quality Converter</title>
+    <style>
+        /* ... (Copy most of your existing CSS from index.html) ... */
+        body {
+            font-family: sans-serif; margin: 0; padding: 20px; color: #333;
+            background-image: url("{{ url_for('static', filename='images/image.jpg') }}");
+            background-size: cover; background-position: center center;
+            background-repeat: no-repeat; background-attachment: fixed; min-height: 100vh;
+        }
+        .container {
+            background-color: rgba(255, 255, 255, 0.85); padding: 20px; border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2); max-width: 600px; margin: auto; position: relative;
+        }
+        h1 { text-align: center; color: #2c3e50; }
+        nav { text-align: center; margin-bottom: 20px; }
+        nav a { margin: 0 10px; text-decoration: none; color: #3498db; font-weight: bold; }
+        nav a:hover { text-decoration: underline; }
+        /* ... (rest of your styles: labels, inputs, flash messages, loader etc.) ... */
+        #loader { /* Ensure loader styles are present */
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); z-index: 9999;
+            justify-content: center; align-items: center;
+        }
+        #loader img { width: 80px; height: 80px; }
+         .info-text {
+            font-size: 0.85em; color: #555; margin-bottom: 15px;
+            background-color: rgba(236, 240, 241, 0.7); padding: 8px;
+            border-radius: 3px; line-height: 1.4;
+        }
+        .param-group {
+            border: 1px solid #dde; padding: 15px; margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .param-group legend { font-weight: bold; padding: 0 10px; color: #2c3e50; font-size: 1.1em; }
+        input[type="submit"] {
+            background-color: #27ae60; /* Green for video */
+        }
+        input[type="submit"]:hover {
+            background-color: #229954;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="loader">
+        <img src="{{ url_for('static', filename='images/giphy.gif') }}" alt="Processing Video...">
+    </div>
+
+    <div class="container">
+        <nav>
+            <a href="{{ url_for('index_image_converter') }}">Image Converter</a>
+            <a href="{{ url_for('video_converter_route') }}">Video Converter</a>
+        </nav>
+        <h1>Video Quality Converter</h1>
+        <p class="info-text">Note: Video conversion can take a significant amount of time depending on video length and settings. Be patient!</p>
+        <p class="info-text">Ensure FFmpeg is installed on the server.</p>
+
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <ul class="flash-messages">
+            {% for category, message in messages %}
+              <li class="{{ category }}">{{ message }}</li>
+            {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" enctype="multipart/form-data" id="videoConversionForm">
+            <label for="file">Choose Video File:</label>
+            <input type="file" name="file" id="file" accept="video/*" required>
+
+            <fieldset class="param-group">
+                <legend>Video Conversion Settings</legend>
+
+                <label for="resolution">Target Resolution:</label>
+                <select name="resolution" id="resolution">
+                    <option value="-1x360">360p (Low Quality)</option>
+                    <option value="-1x480" selected>480p (Standard Definition)</option>
+                    <option value="-1x720">720p (HD)</option>
+                    <option value="-1x1080">1080p (Full HD)</option>
+                    <option value="original">Keep Original (Re-encode only)</option>
+                </select>
+                <p class="info-text">"-1xHEIGHT" scales to specified height while maintaining aspect ratio.</p>
+
+                <label for="video_bitrate">Target Video Bitrate (e.g., 1M, 800k, 2.5M):</label>
+                <input type="text" name="video_bitrate" id="video_bitrate" value="1M" pattern="^\d+(\.\d+)?[MKmk]?$" required>
+                <p class="info-text">Higher bitrate means better quality and larger file. Use 'k' for kilobits, 'M' for megabits (e.g., 1500k or 1.5M).</p>
+
+                <label for="audio_bitrate">Target Audio Bitrate (e.g., 128k, 96k):</label>
+                <input type="text" name="audio_bitrate" id="audio_bitrate" value="128k" pattern="^\d+[Kmk]?$" required>
+                <p class="info-text">E.g., 128k, 96k, 64k.</p>
+
+            </fieldset>
+            <input type="submit" value="Convert and Download Video">
+        </form>
+    </div>
+
+    <script>
+        // --- (Copy your existing JavaScript for the loader and cookie handling) ---
+        // Make sure the form ID matches: 'videoConversionForm'
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('videoConversionForm'); // Ensure this ID matches your form
+            const loader = document.getElementById('loader');
+            let cookieCheckInterval;
+
+            if (form && loader) {
+                form.addEventListener('submit', function(event) {
+                    const fileInput = document.getElementById('file');
+                    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                        return; // Browser validation should handle 'required'
+                    }
+                    loader.style.display = 'flex';
+                    if (cookieCheckInterval) { clearInterval(cookieCheckInterval); }
+                    cookieCheckInterval = setInterval(function() {
+                        const cookieExists = document.cookie.split(';').some((item) => item.trim().startsWith('fileDownloadComplete='));
+                        if (cookieExists) {
+                            loader.style.display = 'none';
+                            document.cookie = "fileDownloadComplete=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                            clearInterval(cookieCheckInterval);
+                        }
+                    }, 500); // Check a bit less frequently for video
+                    setTimeout(function() { // Longer fallback for video
+                        if (loader.style.display !== 'none') {
+                            console.warn("Loader fallback timeout (video): Hiding loader.");
+                            loader.style.display = 'none';
+                            if (cookieCheckInterval) { clearInterval(cookieCheckInterval); }
+                        }
+                    }, 300000); // 5 minutes fallback for video
+                });
+            }
+            window.addEventListener('pageshow', function(event) {
+                if (document.cookie.split(';').some((item) => item.trim().startsWith('fileDownloadComplete='))) {
+                    document.cookie = "fileDownloadComplete=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                }
+            });
+        });
+    </script>
+</body>
+</html>

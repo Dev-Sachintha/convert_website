@@ -5,7 +5,14 @@
 *   **pip** (Python package installer)
 *   **FFmpeg:** Must be installed on the system where the application will run and be accessible in the system's PATH.
     *   Download from [ffmpeg.org](https://ffmpeg.org/download.html) or install via your system's package manager (e.g., `apt`, `yum`, `brew`).
+## Demo Expalin
+ 
 
+https://github.com/user-attachments/assets/6978fefd-6d0a-49b8-8960-1155a4110380
+
+
+
+   ```
 ## Setup and Installation (Local Development)
 
 1.  **Clone the repository (if applicable):**
